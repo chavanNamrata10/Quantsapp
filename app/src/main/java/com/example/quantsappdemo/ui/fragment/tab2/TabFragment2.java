@@ -42,6 +42,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 
@@ -232,6 +233,8 @@ public class TabFragment2 extends Fragment implements Fragment2MVP.View {
 
     private void DownloadFromUrl(String string, String fileName) {
         int count;
+        File apkStorage = null;
+
         try {
 
             File root = android.os.Environment.getExternalStorageDirectory();
@@ -247,9 +250,23 @@ public class TabFragment2 extends Fragment implements Fragment2MVP.View {
             if (file.exists()) {
                 isDownload = true;
             } else {
-                //URL url = new URL(DownloadUrl);
-                URLConnection conection = url.openConnection();
+                URL url1 = new URL(string);
+                HttpURLConnection conection = (HttpURLConnection) url.openConnection();
+                conection.setRequestMethod("GET");
                 conection.connect();
+
+                if (conection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                    Log.d("Log16", "response: " + conection.getResponseCode() + " " + conection.getResponseMessage());
+                }
+
+                if (new CheckForSDCard().isSDCardPresent()) {
+
+                    apkStorage = new File(Environment.getExternalStorageDirectory() + "/quantsapp");
+                }else{
+                    Toast.makeText(context, "There is no sd card", Toast.LENGTH_SHORT).show();
+
+                }
+
                 // getting file length
                 int lenghtOfFile = conection.getContentLength();
 
@@ -289,6 +306,18 @@ public class TabFragment2 extends Fragment implements Fragment2MVP.View {
 
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    public class CheckForSDCard {
+        //Check If SD Card is present or not method
+        public boolean isSDCardPresent() {
+            if (Environment.getExternalStorageState().equals(
+
+                    Environment.MEDIA_MOUNTED)) {
+                return true;
+            }
+            return false;
         }
     }
 }
