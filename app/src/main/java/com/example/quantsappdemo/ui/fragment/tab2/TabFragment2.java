@@ -2,13 +2,10 @@ package com.example.quantsappdemo.ui.fragment.tab2;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.bluetooth.BluetoothClass;
+import android.app.ProgressDialog;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Message;
@@ -31,57 +28,56 @@ import androidx.databinding.DataBindingUtil;
 import androidx.fragment.app.Fragment;
 
 import com.example.quantsappdemo.R;
-import com.example.quantsappdemo.app.App;
 import com.example.quantsappdemo.databinding.FragmentMainBinding;
-import com.example.quantsappdemo.ui.fragment.tab2.core.Fragment2Presenter;
-import com.example.quantsappdemo.ui.fragment.tab2.di.DaggerFragment2Component;
-import com.example.quantsappdemo.ui.fragment.tab2.di.Fragment2Module;
 
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLConnection;
+import java.net.URLEncoder;
 
-import javax.inject.Inject;
-
-public class TabFragment2 extends Fragment implements Fragment2MVP.View {
+public class TabFragment2 extends Fragment {
 
     private View rootView;
     FragmentMainBinding binding;
 
-    @Inject
-    Fragment2Presenter presenter;
-
-    String hostingUrl;
 
     Context context;
-
+    ProgressDialog pd;
     boolean isDownload;
+    String path = "https://qapptemporary.s3.ap-south-1.amazonaws.com/ritesh/zip_files/44418/Annexure123456&7_FO.xls";
 
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        injectDependency();
         context = getContext();
     }
 
-    @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
 
         binding = DataBindingUtil.inflate(inflater, R.layout.fragment_main, container, false);
         rootView = binding.getRoot();
-        initView(rootView);
 
-//        binding.webView.addJavascriptInterface(new WebAppInterface(getContext()), "Android");
+
+        String[] permissions = {Manifest.permission.INTERNET, Manifest.permission.WRITE_EXTERNAL_STORAGE};
+        if (!hasPermission()) {
+            ActivityCompat.requestPermissions(getActivity(), permissions, 1);
+
+        } else {
+            Toast.makeText(context, "Permission granted", Toast.LENGTH_SHORT).show();
+        }
+
+        pd= ProgressDialog.show(context, "", "Please wait..", true);
+        pd.show();
+
         binding.webView.setWebViewClient(new MyBrowser());
         binding.webView.setWebChromeClient(new UriWebChromeClient());
-
         WebSettings webSettings = binding.webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setAllowContentAccess(true);
@@ -91,35 +87,25 @@ public class TabFragment2 extends Fragment implements Fragment2MVP.View {
         webSettings.setAllowFileAccess(true);
         webSettings.setDomStorageEnabled(true);
 
-
         webSettings.setUseWideViewPort(true);
         webSettings.setLoadsImagesAutomatically(true);
-
-        final String path = "https://qapptemporary.s3.ap-south-1.amazonaws.com/ritesh/zip_files/44418/Annexure123456&7_FO.xls";
-        binding.webView.loadUrl(path);
-
-       /* Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setData(Uri.parse(path));
-        startActivity(intent);*/
+        try {
+            binding.webView.loadUrl("https://docs.google.com/gview?embedded=true&url="
+                    + URLEncoder.encode("https://qapptemporary.s3.ap-south-1.amazonaws.com/ritesh/zip_files/44418/Annexure123456&7_FO.xls", "ISO-8859-1"));
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
 
 
         binding.fbDownload.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                String[] permissions = {Manifest.permission.INTERNET, Manifest.permission.WRITE_EXTERNAL_STORAGE};
-                if (!hasPermission()) {
-                    ActivityCompat.requestPermissions(getActivity(), permissions, 1);
-                } else {
-                    if (path.endsWith(".xls")) {
-                        MyAsyncTask myAsyncTask = new MyAsyncTask();
-                        myAsyncTask.execute(path);
-                    }
+                if (path.endsWith(".xls")) {
+                    MyAsyncTask myAsyncTask = new MyAsyncTask();
+                    myAsyncTask.execute(path);
                 }
             }
         });
-//        setUpWebview(binding.webView);
-
-
 
         return rootView;
     }
@@ -133,46 +119,19 @@ public class TabFragment2 extends Fragment implements Fragment2MVP.View {
                 read_external == PackageManager.PERMISSION_GRANTED;
     }
 
-    @Override
-    public void initView(View rootView) {
-
-    }
-
-    @Override
-    public void injectDependency() {
-        DaggerFragment2Component.builder()
-                .appComponent(App.getAppComponent())
-                .fragment2Module(new Fragment2Module(this))
-                .build()
-                .inject(this);
-
-    }
-
-    @SuppressLint("SetJavaScriptEnabled")
-    @Override
-    public void setUpWebview(WebView webView) {
-
-
-
-    }
-
-
 
     private class MyBrowser extends WebViewClient {
 
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
-            if (url.endsWith(".xls")) {
-                Toast.makeText(context, "url: " + url, Toast.LENGTH_SHORT).show();
-            }
             view.loadUrl(url);
-
             return true;
         }
 
         @Override
         public void onPageFinished(WebView view, String url) {
             // TODO Auto-generated method stub
+            pd.dismiss();
             super.onPageFinished(view, url);
         }
     }
@@ -192,7 +151,6 @@ public class TabFragment2 extends Fragment implements Fragment2MVP.View {
             binding.webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
             binding.webView.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT));
-//            mContainer.addView(mWebviewPop);
             WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
             transport.setWebView(binding.webView);
             resultMsg.sendToTarget();
@@ -233,7 +191,6 @@ public class TabFragment2 extends Fragment implements Fragment2MVP.View {
 
     private void DownloadFromUrl(String string, String fileName) {
         int count;
-        File apkStorage = null;
 
         try {
 
@@ -259,17 +216,13 @@ public class TabFragment2 extends Fragment implements Fragment2MVP.View {
                     Log.d("Log16", "response: " + conection.getResponseCode() + " " + conection.getResponseMessage());
                 }
 
-                if (new CheckForSDCard().isSDCardPresent()) {
-
-                    apkStorage = new File(Environment.getExternalStorageDirectory() + "/quantsapp");
-                }else{
-                    Toast.makeText(context, "There is no sd card", Toast.LENGTH_SHORT).show();
-
-                }
 
                 // getting file length
                 int lenghtOfFile = conection.getContentLength();
 
+                FileOutputStream fileOutputStream = new FileOutputStream(file);
+
+                InputStream inputStream = conection.getInputStream();
                 // input stream to read file - with 8k buffer
                 InputStream input = new BufferedInputStream(url.openStream(), 8192);
 
@@ -278,7 +231,7 @@ public class TabFragment2 extends Fragment implements Fragment2MVP.View {
 
                 byte data[] = new byte[1024];
 
-                long total = 0;
+                int total = 0;
 
                 while ((count = input.read(data)) != -1) {
                     total += count;
